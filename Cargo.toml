@@ -1,0 +1,13 @@
+[package]
+name = "pushrs"
+description = "A Rust implementation of the Push 3.0 Programming Language."
+readme = "README.md"
+license = "Apache-2.0"
+documentation = "https://jgrillo.github.io/pushrs"
+repository = "https://github.com/jgrillo/pushrs"
+keywords = ["evolution", "genetic", "push", "gp", "pushgp"]
+version = "0.0.1"
+authors = ["Jesse C. Grillo <jesse.grillo@gmail.com>"]
+
+[dev-dependencies]
+quickcheck = "0.4.*"
