@@ -10,4 +10,4 @@ version = "0.0.1"
 authors = ["Jesse C. Grillo <jesse.grillo@gmail.com>"]
 
 [dev-dependencies]
-quickcheck = "0.4.*"
+quickcheck = "0.6.*"
