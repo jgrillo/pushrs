@@ -17,30 +17,251 @@
 use std::vec::Vec;
 use std::mem;
 
-pub trait Type {
-    fn eq(&self, &mut state: State);
+// generic stack implementation
 
-    fn dup(&self, &mut state: State);
-
-    fn flush(&self, &mut state: State);
-
-    fn pop(&self, &mut state: State);
-
-    fn rand(&self, &mut state: State);
-
-    fn rot(&self, &mut state: State);
-
-    fn shove(&self, &mut state: State);
-
-    fn stack_depth(&self, &mut state: State);
-
-    fn swap(&self, &mut state: State);
-
-    fn yank(&self, &mut state: State);
-
-    fn yank_dup(&self, &mut state: State);
+#[derive(Debug)]
+pub struct Stack<T: Clone> {
+    stack: Vec<T>
 }
 
+impl <T: Clone> Stack<T> {
+    fn new() -> Stack<T> {
+        Stack {
+            stack: Vec::new()
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    fn push(&mut self, value: T) {
+        self.stack.push(value);
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        self.stack.pop()
+    }
+
+    fn get(&self, idx: usize) -> Option<&T> {
+        self.stack.get(idx)
+    }
+
+    fn yank(&mut self, idx: usize) -> Option<T> {
+        if self.len() > idx {
+            Some(self.stack.remove(idx))
+        } else {
+            None
+        }
+    }
+
+    fn shove(&mut self, idx: usize) {
+        if idx != 0 && idx < self.len() {
+            self.stack.swap(0, idx);
+        }
+    }
+
+    fn yank_dup(&mut self, idx: usize) {
+        if self.len() > idx {
+            let deep_item = self.stack[idx].clone();
+            self.push(deep_item);
+        }
+    }
+
+    fn swap(&mut self) {
+        let len = self.len();
+
+        if len >= 2 {
+            self.stack.swap(len - 2, len - 1);
+        }
+    }
+
+    fn rot(&mut self) {
+        if self.len() >= 3 {
+            let third_item = self.stack.remove(2);
+            self.push(third_item);
+        }
+    }
+
+    fn dup(&mut self) {
+        if let Some(item) = self.pop() {
+            let copied_item = item.clone();
+            self.push(item);
+            self.push(copied_item);
+        }
+    }
+
+    fn flush(&mut self) {
+        mem::replace(&mut self.stack, Vec::new());
+    }
+}
+
+// program state
+
+#[derive(Debug)]
+pub struct State<'a> {
+    boolean_stack: Stack<bool>,
+    code_stack: Stack<Program<'a>>,
+    exec_stack: Stack<Program<'a>>,
+    float_stack: Stack<f64>,
+    integer_stack: Stack<i64>,
+    name_stack: Stack<&'a str>
+}
+
+impl <'a> State<'a> {
+    pub fn new() -> State<'a> {
+        State {
+            boolean_stack: Stack::new(),
+            code_stack: Stack::new(),
+            exec_stack: Stack::new(),
+            float_stack: Stack::new(),
+            integer_stack: Stack::new(),
+            name_stack: Stack::new()
+        }
+    }
+
+    pub fn advance(&mut self) -> Option<&State> {
+        if let Some(exec) = self.exec_stack.get(0) {
+            match exec {
+                Program::Literal(literal) => {
+                    // FIXME
+                },
+                Program::Instruction(instruction) => {
+                    // FIXME
+                },
+                Program::List(list) => {
+                    // FIXME
+                }
+            }
+
+            Some(&self)
+        } else {
+            None
+        }
+    }
+}
+
+// push interpreter
+
+#[derive(Debug)]
+pub struct Config {
+    min_random_integer: i64,
+    max_random_integer: i64,
+    min_random_float: f64,
+    max_random_float: f64,
+    max_points_in_random_expressions: usize,
+    max_points_in_program: usize,
+    eval_push_limit: usize,
+    new_erc_name_probability: f64,
+    random_seed: usize,
+    top_level_pop_code: bool
+}
+
+#[derive(Debug)]
+pub struct Interpreter<'a> {
+    state: State<'a>,
+    config: Config
+}
+
+impl <'a> Interpreter<'a> {
+    pub fn new(config: Config) -> Interpreter<'a> {
+        Interpreter{
+            state: State::new(),
+            config
+        }
+    }
+
+    pub fn run(&mut self) {
+        while let Some(state) = self.state.advance() {
+            unimplemented!() // FIXME: log some stuff?
+        }
+    }
+}
+
+// "AST"
+
+pub trait Dispatch<'a> {
+    fn dispatch(&self, state: &'a mut State) -> &'a State;
+}
+
+#[derive(Debug, Clone)]
+pub enum Program<'a> {
+    Instruction(Instruction),
+    Literal(Literal<'a>),
+    List(Vec<Program<'a>>)
+}
+
+impl <'a> Dispatch<'a> for Program<'a> {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Program::Instruction(instruction) => instruction.dispatch(state),
+            Program::Literal(literal) => literal.dispatch(state),
+            Program::List(list) => {
+                for program in list.into_iter().rev() {
+                    state.exec_stack.push(program);
+                }
+
+                &state
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Instruction {
+    Boolean(Boolean),
+    Code(Code),
+    Exec(Exec),
+    Float(Float),
+    Integer(Integer),
+    Name(Name)
+}
+
+impl <'a> Dispatch<'a> for Instruction {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Instruction::Boolean(boolean) => boolean.dispatch(state),
+            Instruction::Code(code) => code.dispatch(state),
+            Instruction::Exec(exec) => exec.dispatch(state),
+            Instruction::Float(float) => float.dispatch(state),
+            Instruction::Integer(integer) => integer.dispatch(state),
+            Instruction::Name(name) => name.dispatch(state)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Literal<'a> {
+    Boolean(bool),
+    Float(f64),
+    Integer(i64),
+    Name(&'a str)
+}
+
+impl <'a> Dispatch<'a> for Literal<'a> {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Literal::Boolean(boolean) => {
+                state.boolean_stack.push(boolean);
+                &state
+            },
+            Literal::Float(float) => {
+                state.float_stack.push(float);
+                &state
+            },
+            Literal::Integer(integer) => {
+                state.integer_stack.push(integer);
+                &state
+            },
+            Literal::Name(name) => {
+                state.name_stack.push(name);
+                &state
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Boolean {
     Eq,
     And,
@@ -61,6 +282,31 @@ pub enum Boolean {
     YankDup
 }
 
+impl <'a> Dispatch<'a> for Boolean {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Boolean::Eq => unimplemented!(),
+            Boolean::And => unimplemented!(),
+            Boolean::Define => unimplemented!(),
+            Boolean::Dup => unimplemented!(),
+            Boolean::Flush => unimplemented!(),
+            Boolean::FromFloat => unimplemented!(),
+            Boolean::FromInteger => unimplemented!(),
+            Boolean::Not => unimplemented!(),
+            Boolean::Or => unimplemented!(),
+            Boolean::Pop => unimplemented!(),
+            Boolean::Rand => unimplemented!(),
+            Boolean::Rot => unimplemented!(),
+            Boolean::Shove => unimplemented!(),
+            Boolean::StackDepth => unimplemented!(),
+            Boolean::Swap => unimplemented!(),
+            Boolean::Yank => unimplemented!(),
+            Boolean::YankDup => unimplemented!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Code {
     Eq,
     Append,
@@ -74,10 +320,10 @@ pub enum Code {
     Definition,
     Discrepancy,
     Do,
-    Do_,
-    DoCount,
-    DoRange,
-    DoTimes,
+    DoStar,
+    DoStarCount,
+    DoStarRange,
+    DoStarTimes,
     Dup,
     Extract,
     Flush,
@@ -109,12 +355,65 @@ pub enum Code {
     YankDup
 }
 
+impl <'a> Dispatch<'a> for Code {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Code::Eq => unimplemented!(),
+            Code::Append => unimplemented!(),
+            Code::Atom => unimplemented!(),
+            Code::Car => unimplemented!(),
+            Code::Cdr => unimplemented!(),
+            Code::Cons => unimplemented!(),
+            Code::Container => unimplemented!(),
+            Code::Contains => unimplemented!(),
+            Code::Define => unimplemented!(),
+            Code::Definition => unimplemented!(),
+            Code::Discrepancy => unimplemented!(),
+            Code::Do => unimplemented!(),
+            Code::DoStar => unimplemented!(),
+            Code::DoStarCount => unimplemented!(),
+            Code::DoStarRange => unimplemented!(),
+            Code::DoStarTimes => unimplemented!(),
+            Code::Dup => unimplemented!(),
+            Code::Extract => unimplemented!(),
+            Code::Flush => unimplemented!(),
+            Code::FromBoolean => unimplemented!(),
+            Code::FromFloat => unimplemented!(),
+            Code::FromInteger => unimplemented!(),
+            Code::FromName => unimplemented!(),
+            Code::If => unimplemented!(),
+            Code::Insert => unimplemented!(),
+            Code::Instructions => unimplemented!(),
+            Code::Length => unimplemented!(),
+            Code::List => unimplemented!(),
+            Code::Member => unimplemented!(),
+            Code::Noop => unimplemented!(),
+            Code::Nth => unimplemented!(),
+            Code::NthCdr => unimplemented!(),
+            Code::Null => unimplemented!(),
+            Code::Pop => unimplemented!(),
+            Code::Position => unimplemented!(),
+            Code::Quote => unimplemented!(),
+            Code::Rand => unimplemented!(),
+            Code::Rot => unimplemented!(),
+            Code::Shove => unimplemented!(),
+            Code::Size => unimplemented!(),
+            Code::StackDepth => unimplemented!(),
+            Code::Subst => unimplemented!(),
+            Code::Swap => unimplemented!(),
+            Code::Yank => unimplemented!(),
+            Code::YankDup => unimplemented!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Exec {
     Eq,
     Define,
-    DoCount,
-    DoRange,
-    DoTimes,
+    DoStarCount,
+    DoStarRange,
+    DoStarTimes,
     Dup,
     Flush,
     If,
@@ -130,16 +429,42 @@ pub enum Exec {
     YankDup
 }
 
+impl <'a> Dispatch<'a> for Exec {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Exec::Eq => unimplemented!(),
+            Exec::Define => unimplemented!(),
+            Exec::DoStarCount => unimplemented!(),
+            Exec::DoStarRange => unimplemented!(),
+            Exec::DoStarTimes => unimplemented!(),
+            Exec::Dup => unimplemented!(),
+            Exec::Flush => unimplemented!(),
+            Exec::If => unimplemented!(),
+            Exec::K => unimplemented!(),
+            Exec::Pop => unimplemented!(),
+            Exec::Rot => unimplemented!(),
+            Exec::S => unimplemented!(),
+            Exec::Shove => unimplemented!(),
+            Exec::StackDepth => unimplemented!(),
+            Exec::Swap => unimplemented!(),
+            Exec::Y => unimplemented!(),
+            Exec::Yank => unimplemented!(),
+            Exec::YankDup => unimplemented!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Float {
     Mod,
-    Mul,
-    Add,
-    Sub,
-    Div,
-    Lt,
+    Times,
+    Plus,
+    Minus,
+    Divide,
+    LessThan,
     Eq,
-    Gt,
-    Cos,
+    GreaterThan,
+    Cosine,
     Define,
     Dup,
     Flush,
@@ -151,23 +476,55 @@ pub enum Float {
     Rand,
     Rot,
     Shove,
-    Sin,
-    StackDepth,
+    Sine,
     Swap,
-    Tan,
+    Tangent,
     Yank,
     YankDup
 }
 
+impl <'a> Dispatch<'a> for Float {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Float::Mod => unimplemented!(),
+            Float::Times => unimplemented!(),
+            Float::Plus => unimplemented!(),
+            Float::Minus => unimplemented!(),
+            Float::Divide => unimplemented!(),
+            Float::LessThan => unimplemented!(),
+            Float::Eq => unimplemented!(),
+            Float::GreaterThan => unimplemented!(),
+            Float::Cosine => unimplemented!(),
+            Float::Define => unimplemented!(),
+            Float::Dup => unimplemented!(),
+            Float::Flush => unimplemented!(),
+            Float::FromBoolean => unimplemented!(),
+            Float::FromInteger => unimplemented!(),
+            Float::Max => unimplemented!(),
+            Float::Min => unimplemented!(),
+            Float::Pop => unimplemented!(),
+            Float::Rand => unimplemented!(),
+            Float::Rot => unimplemented!(),
+            Float::Shove => unimplemented!(),
+            Float::Sine => unimplemented!(),
+            Float::Swap => unimplemented!(),
+            Float::Tangent => unimplemented!(),
+            Float::Yank => unimplemented!(),
+            Float::YankDup => unimplemented!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Integer {
     Mod,
-    Mul,
-    Add,
-    Sub,
-    Div,
-    Lt,
+    Times,
+    Plus,
+    Minus,
+    Divide,
+    LessThan,
     Eq,
-    Gt,
+    GreaterThan,
     Define,
     Dup,
     Flush,
@@ -185,6 +542,37 @@ pub enum Integer {
     YankDup
 }
 
+impl <'a> Dispatch<'a> for Integer {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Integer::Mod => unimplemented!(),
+            Integer::Times => unimplemented!(),
+            Integer::Plus => unimplemented!(),
+            Integer::Minus => unimplemented!(),
+            Integer::Divide => unimplemented!(),
+            Integer::LessThan => unimplemented!(),
+            Integer::Eq => unimplemented!(),
+            Integer::GreaterThan => unimplemented!(),
+            Integer::Define => unimplemented!(),
+            Integer::Dup => unimplemented!(),
+            Integer::Flush => unimplemented!(),
+            Integer::FromBoolean => unimplemented!(),
+            Integer::FromFloat => unimplemented!(),
+            Integer::Max => unimplemented!(),
+            Integer::Min => unimplemented!(),
+            Integer::Pop => unimplemented!(),
+            Integer::Rand => unimplemented!(),
+            Integer::Rot => unimplemented!(),
+            Integer::Shove => unimplemented!(),
+            Integer::StackDepth => unimplemented!(),
+            Integer::Swap => unimplemented!(),
+            Integer::Yank => unimplemented!(),
+            Integer::YankDup => unimplemented!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Name {
     Eq,
     Dup,
@@ -201,128 +589,23 @@ pub enum Name {
     YankDup
 }
 
-pub struct Stack<T> where T: Clone {
-    stack: Vec<T>
-}
-
-impl <T> Stack<T> {
-    pub fn new() -> Stack<T> {
-        Stack {
-            stack: Vec::new()
+impl <'a> Dispatch<'a> for Name {
+    fn dispatch(&self, state: &'a mut State) -> &'a State {
+        match *self {
+            Name::Eq => unimplemented!(),
+            Name::Dup => unimplemented!(),
+            Name::Flush => unimplemented!(),
+            Name::Pop => unimplemented!(),
+            Name::Quote => unimplemented!(),
+            Name::Rand => unimplemented!(),
+            Name::RandBoundName => unimplemented!(),
+            Name::Rot => unimplemented!(),
+            Name::Shove => unimplemented!(),
+            Name::StackDepth => unimplemented!(),
+            Name::Swap => unimplemented!(),
+            Name::Yank => unimplemented!(),
+            Name::YankDup => unimplemented!()
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.stack.len()
-    }
-
-    pub fn push(&mut self, value: T) {
-        self.stack.push(value);
-    }
-
-    pub fn pop(&mut self) -> Option<T> {
-        self.stack.pop()
-    }
-
-    pub fn get(&self, idx: usize) -> Option<&T> {
-        self.stack.get(idx)
-    }
-
-    pub fn yank(&mut self, idx: usize) -> Option<T> {
-        if self.stack.len() > idx {
-            Some(self.stack.remove(idx))
-        } else {
-            None
-        }
-    }
-
-    pub fn shove(&mut self, idx: usize) {
-        if idx != 0 && idx < self.stack.len() {
-            self.stack.swap(0, idx);
-        }
-    }
-
-    pub fn yank_dup(&mut self, idx: usize) {
-        if let Some(deep_item) = self.stack.get(idx) {
-            self.stack.push(deep_item.clone());
-        }
-    }
-
-    pub fn swap(&mut self) {
-        let len = self.stack.len();
-
-        if len >= 2 {
-            self.stack.swap(len - 2, len - 1);
-        }
-    }
-
-    pub fn rot(&mut self) {
-        if self.stack.len() >= 3 {
-            let third_item = self.stack.remove(2);
-            self.stack.push(third_item);
-        }
-    }
-
-    pub fn dup(&mut self) {
-        if let Some(item) = self.stack.pop() {
-            let copied_item = item.clone();
-            self.stack.push(item);
-            self.stack.push(copied_item);
-        }
-    }
-
-    pub fn flush(&mut self) {
-        mem::replace(&mut self.stack, Vec::new());
-    }
-}
-
-pub struct State {
-    boolean_stack: Stack<Boolean>,
-    code_stack: Stack<Code>,
-    exec_stack: Stack<Exec>,
-    float_stack: Stack<Float>,
-    integer_stack: Stack<Integer>,
-    name_stack: Stack<Name>
-}
-
-impl State {
-    pub fn new() -> State {
-        State {
-            boolean_stack: Stack::new(),
-            code_stack: Stack::new(),
-            exec_stack: Stack::new(),
-            float_stack: Stack::new(),
-            integer_stack: Stack::new(),
-            name_stack: Stack::new()
-        }
-    }
-
-    pub fn borrow_type_stack(&mut self) -> &mut Stack<Type> {
-        &mut self.type_stack
-    }
-
-    pub fn borrow_boolean_stack(&mut self) -> &mut Stack<Boolean> {
-        &mut self.boolean_stack
-    }
-
-    pub fn borrow_code_stack(&mut self) -> &mut Stack<Code> {
-        &mut self.code_stack
-    }
-
-    pub fn borrow_exec_stack(&mut self) -> &mut Stack<Exec> {
-        &mut self.exec_stack
-    }
-
-    pub fn borrow_float_stack(&mut self) -> &mut Stack<Float> {
-        &mut self.float_stack
-    }
-
-    pub fn borrow_integer_stack(&mut self) -> &mut Stack<Integer> {
-        &mut self.integer_stack
-    }
-
-    pub fn borrow_name_stack(&mut self) -> &mut Stack<Name> {
-        &mut self.name_stack
     }
 }
 
