@@ -134,7 +134,7 @@ impl <'a> State<'a> {
                 }
             }
 
-            Some(&self)
+            Some(self)
         } else {
             None
         }
@@ -181,7 +181,7 @@ impl <'a> Interpreter<'a> {
 // "AST"
 
 pub trait Dispatch<'a> {
-    fn dispatch(&self, state: &'a mut State) -> &'a State;
+    fn dispatch(self, state: &'a mut State<'a>);
 }
 
 #[derive(Debug, Clone)]
@@ -192,16 +192,14 @@ pub enum Program<'a> {
 }
 
 impl <'a> Dispatch<'a> for Program<'a> {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Program::Instruction(instruction) => instruction.dispatch(state),
             Program::Literal(literal) => literal.dispatch(state),
             Program::List(list) => {
                 for program in list.into_iter().rev() {
                     state.exec_stack.push(program);
                 }
-
-                &state
             }
         }
     }
@@ -218,8 +216,8 @@ pub enum Instruction {
 }
 
 impl <'a> Dispatch<'a> for Instruction {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Instruction::Boolean(boolean) => boolean.dispatch(state),
             Instruction::Code(code) => code.dispatch(state),
             Instruction::Exec(exec) => exec.dispatch(state),
@@ -239,24 +237,12 @@ pub enum Literal<'a> {
 }
 
 impl <'a> Dispatch<'a> for Literal<'a> {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
-            Literal::Boolean(boolean) => {
-                state.boolean_stack.push(boolean);
-                &state
-            },
-            Literal::Float(float) => {
-                state.float_stack.push(float);
-                &state
-            },
-            Literal::Integer(integer) => {
-                state.integer_stack.push(integer);
-                &state
-            },
-            Literal::Name(name) => {
-                state.name_stack.push(name);
-                &state
-            }
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
+            Literal::Boolean(boolean) => state.boolean_stack.push(boolean),
+            Literal::Float(float) => state.float_stack.push(float),
+            Literal::Integer(integer) => state.integer_stack.push(integer),
+            Literal::Name(name) => state.name_stack.push(name)
         }
     }
 }
@@ -283,8 +269,8 @@ pub enum Boolean {
 }
 
 impl <'a> Dispatch<'a> for Boolean {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Boolean::Eq => unimplemented!(),
             Boolean::And => unimplemented!(),
             Boolean::Define => unimplemented!(),
@@ -356,8 +342,8 @@ pub enum Code {
 }
 
 impl <'a> Dispatch<'a> for Code {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Code::Eq => unimplemented!(),
             Code::Append => unimplemented!(),
             Code::Atom => unimplemented!(),
@@ -430,8 +416,8 @@ pub enum Exec {
 }
 
 impl <'a> Dispatch<'a> for Exec {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Exec::Eq => unimplemented!(),
             Exec::Define => unimplemented!(),
             Exec::DoStarCount => unimplemented!(),
@@ -484,8 +470,8 @@ pub enum Float {
 }
 
 impl <'a> Dispatch<'a> for Float {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Float::Mod => unimplemented!(),
             Float::Times => unimplemented!(),
             Float::Plus => unimplemented!(),
@@ -543,8 +529,8 @@ pub enum Integer {
 }
 
 impl <'a> Dispatch<'a> for Integer {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Integer::Mod => unimplemented!(),
             Integer::Times => unimplemented!(),
             Integer::Plus => unimplemented!(),
@@ -590,8 +576,8 @@ pub enum Name {
 }
 
 impl <'a> Dispatch<'a> for Name {
-    fn dispatch(&self, state: &'a mut State) -> &'a State {
-        match *self {
+    fn dispatch(self, state: &'a mut State<'a>) {
+        match self {
             Name::Eq => unimplemented!(),
             Name::Dup => unimplemented!(),
             Name::Flush => unimplemented!(),
