@@ -17,82 +17,40 @@
 use std::vec::Vec;
 use std::mem;
 
-// generic stack implementation
+// push interpreter
 
 #[derive(Debug)]
-pub struct Stack<T: Clone> {
-    stack: Vec<T>
+pub struct Config {
+    min_random_integer: i64,
+    max_random_integer: i64,
+    min_random_float: f64,
+    max_random_float: f64,
+    max_points_in_random_expressions: usize,
+    max_points_in_program: usize,
+    eval_push_limit: usize,
+    new_erc_name_probability: f64,
+    random_seed: usize,
+    top_level_pop_code: bool
 }
 
-impl <T: Clone> Stack<T> {
-    fn new() -> Stack<T> {
-        Stack {
-            stack: Vec::new()
+#[derive(Debug)]
+pub struct Interpreter<'a> {
+    state: State<'a>,
+    config: Config
+}
+
+impl <'a> Interpreter<'a> {
+    pub fn new(config: Config) -> Interpreter<'a> {
+        Interpreter{
+            state: State::new(),
+            config
         }
     }
 
-    fn len(&self) -> usize {
-        self.stack.len()
-    }
-
-    fn push(&mut self, value: T) {
-        self.stack.push(value);
-    }
-
-    fn pop(&mut self) -> Option<T> {
-        self.stack.pop()
-    }
-
-    fn get(&self, idx: usize) -> Option<&T> {
-        self.stack.get(idx)
-    }
-
-    fn yank(&mut self, idx: usize) -> Option<T> {
-        if self.len() > idx {
-            Some(self.stack.remove(idx))
-        } else {
-            None
+    pub fn run(&mut self) {
+        while let Some(state) = self.state.advance() {
+            unimplemented!() // FIXME: log some stuff?
         }
-    }
-
-    fn shove(&mut self, idx: usize) {
-        if idx != 0 && idx < self.len() {
-            self.stack.swap(0, idx);
-        }
-    }
-
-    fn yank_dup(&mut self, idx: usize) {
-        if self.len() > idx {
-            let deep_item = self.stack[idx].clone();
-            self.push(deep_item);
-        }
-    }
-
-    fn swap(&mut self) {
-        let len = self.len();
-
-        if len >= 2 {
-            self.stack.swap(len - 2, len - 1);
-        }
-    }
-
-    fn rot(&mut self) {
-        if self.len() >= 3 {
-            let third_item = self.stack.remove(2);
-            self.push(third_item);
-        }
-    }
-
-    fn dup(&mut self) {
-        if let Some(item) = self.pop() {
-            let copied_item = item.clone();
-            self.push(item);
-            self.push(copied_item);
-        }
-    }
-
-    fn flush(&mut self) {
-        mem::replace(&mut self.stack, Vec::new());
     }
 }
 
@@ -141,39 +99,80 @@ impl <'a> State<'a> {
     }
 }
 
-// push interpreter
+// generic stack implementation
 
 #[derive(Debug)]
-pub struct Config {
-    min_random_integer: i64,
-    max_random_integer: i64,
-    min_random_float: f64,
-    max_random_float: f64,
-    max_points_in_random_expressions: usize,
-    max_points_in_program: usize,
-    eval_push_limit: usize,
-    new_erc_name_probability: f64,
-    random_seed: usize,
-    top_level_pop_code: bool
+pub struct Stack<T: Clone> {
+    stack: Vec<T>
 }
 
-#[derive(Debug)]
-pub struct Interpreter<'a> {
-    state: State<'a>,
-    config: Config
-}
-
-impl <'a> Interpreter<'a> {
-    pub fn new(config: Config) -> Interpreter<'a> {
-        Interpreter{
-            state: State::new(),
-            config
+impl <T: Clone> Stack<T> { // FIXME: pull out all the common stack methods
+    fn new() -> Stack<T> {
+        Stack {
+            stack: Vec::new()
         }
     }
 
-    pub fn run(&mut self) {
-        while let Some(state) = self.state.advance() {
-            unimplemented!() // FIXME: log some stuff?
+    fn dup(&mut self) {
+        if let Some(item) = self.pop() {
+            let copied_item = item.clone();
+            self.push(item);
+            self.push(copied_item);
+        }
+    }
+
+    fn flush(&mut self) {
+        mem::replace(&mut self.stack, Vec::new());
+    }
+
+    fn get(&self, idx: usize) -> Option<&T> {
+        self.stack.get(idx)
+    }
+
+    fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        self.stack.pop()
+    }
+
+    fn push(&mut self, value: T) {
+        self.stack.push(value);
+    }
+
+    fn rot(&mut self) {
+        if self.len() >= 3 {
+            let third_item = self.stack.remove(2);
+            self.push(third_item);
+        }
+    }
+
+    fn shove(&mut self, idx: usize) {
+        if idx != 0 && idx < self.len() {
+            self.stack.swap(0, idx);
+        }
+    }
+
+    fn swap(&mut self) {
+        let len = self.len();
+
+        if len >= 2 {
+            self.stack.swap(len - 2, len - 1);
+        }
+    }
+
+    fn yank(&mut self, idx: usize) {
+        if self.len() > idx {
+            let item = self.stack.remove(idx);
+            self.push(item);
+        }
+    }
+
+    fn yank_dup(&mut self, idx: usize) {
+        if self.len() > idx {
+            let deep_item = self.stack[idx].clone();
+            self.push(deep_item);
         }
     }
 }
@@ -270,7 +269,7 @@ pub enum Boolean {
 
 impl <'a> Dispatch<'a> for Boolean {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self {
+        match self { // FIXME: implement
             Boolean::Eq => unimplemented!(),
             Boolean::And => unimplemented!(),
             Boolean::Define => unimplemented!(),
@@ -343,7 +342,7 @@ pub enum Code {
 
 impl <'a> Dispatch<'a> for Code {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self {
+        match self { // FIXME: implement
             Code::Eq => unimplemented!(),
             Code::Append => unimplemented!(),
             Code::Atom => unimplemented!(),
@@ -417,7 +416,7 @@ pub enum Exec {
 
 impl <'a> Dispatch<'a> for Exec {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self {
+        match self { // FIXME: implement
             Exec::Eq => unimplemented!(),
             Exec::Define => unimplemented!(),
             Exec::DoStarCount => unimplemented!(),
@@ -471,7 +470,7 @@ pub enum Float {
 
 impl <'a> Dispatch<'a> for Float {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self {
+        match self { // FIXME: implement
             Float::Mod => unimplemented!(),
             Float::Times => unimplemented!(),
             Float::Plus => unimplemented!(),
@@ -530,7 +529,7 @@ pub enum Integer {
 
 impl <'a> Dispatch<'a> for Integer {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self {
+        match self { // FIXME: implement
             Integer::Mod => unimplemented!(),
             Integer::Times => unimplemented!(),
             Integer::Plus => unimplemented!(),
@@ -577,7 +576,7 @@ pub enum Name {
 
 impl <'a> Dispatch<'a> for Name {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self {
+        match self { // FIXME: implement
             Name::Eq => unimplemented!(),
             Name::Dup => unimplemented!(),
             Name::Flush => unimplemented!(),
