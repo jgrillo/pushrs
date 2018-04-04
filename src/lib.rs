@@ -40,11 +40,8 @@ pub struct Interpreter<'a> {
 }
 
 impl <'a> Interpreter<'a> {
-    pub fn new(config: Config) -> Interpreter<'a> {
-        Interpreter{
-            state: State::new(),
-            config
-        }
+    pub fn new(state: State<'a>, config: Config) -> Interpreter<'a> {
+        Interpreter { state, config }
     }
 
     pub fn run(&mut self) {
@@ -79,7 +76,7 @@ impl <'a> State<'a> {
     }
 
     pub fn advance(&mut self) -> Option<&State> {
-        if let Some(exec) = self.exec_stack.get(0) {
+        if let Some(exec) = self.exec_stack.get(self.exec_stack.len() - 1) {
             match exec {
                 Program::Literal(literal) => {
                     // FIXME
@@ -121,6 +118,10 @@ impl <T: Clone> Stack<T> { // FIXME: pull out all the common stack methods
         }
     }
 
+    fn first(&self) -> Option<&T> {
+        self.get(self.len() - 1)
+    }
+
     fn flush(&mut self) {
         mem::replace(&mut self.stack, Vec::new());
     }
@@ -146,6 +147,10 @@ impl <T: Clone> Stack<T> { // FIXME: pull out all the common stack methods
             let third_item = self.stack.remove(2);
             self.push(third_item);
         }
+    }
+
+    fn second(&self) -> Option<&T> {
+        self.get(self.len() - 2)
     }
 
     fn shove(&mut self, idx: usize) {
@@ -269,24 +274,66 @@ pub enum Boolean {
 
 impl <'a> Dispatch<'a> for Boolean {
     fn dispatch(self, state: &'a mut State<'a>) {
-        match self { // FIXME: implement
-            Boolean::Eq => unimplemented!(),
-            Boolean::And => unimplemented!(),
-            Boolean::Define => unimplemented!(),
-            Boolean::Dup => unimplemented!(),
-            Boolean::Flush => unimplemented!(),
-            Boolean::FromFloat => unimplemented!(),
-            Boolean::FromInteger => unimplemented!(),
-            Boolean::Not => unimplemented!(),
-            Boolean::Or => unimplemented!(),
-            Boolean::Pop => unimplemented!(),
-            Boolean::Rand => unimplemented!(),
-            Boolean::Rot => unimplemented!(),
-            Boolean::Shove => unimplemented!(),
-            Boolean::StackDepth => unimplemented!(),
-            Boolean::Swap => unimplemented!(),
-            Boolean::Yank => unimplemented!(),
-            Boolean::YankDup => unimplemented!()
+        match self {
+            Boolean::Eq => {
+                if let Some(&second) = state.boolean_stack.second() {
+                    if let Some(&first) = state.boolean_stack.first() {
+                        state.boolean_stack.push(first == second);
+                    }
+                }
+            },
+            Boolean::And => {
+                if let Some(&second) = state.boolean_stack.second() {
+                    if let Some(&first) = state.boolean_stack.first() {
+                        state.boolean_stack.push(first && second);
+                    }
+                }
+            },
+            Boolean::Define => unimplemented!(), // FIXME: implement
+            Boolean::Dup => state.boolean_stack.dup(),
+            Boolean::Flush => state.boolean_stack.flush(),
+            Boolean::FromFloat => {
+                if let Some(&first_float) = state.float_stack.first() {
+                    state.boolean_stack.push(first_float == 0.0);
+                }
+            },
+            Boolean::FromInteger => {
+                if let Some(&first_integer) = state.integer_stack.first() {
+                    state.boolean_stack.push(first_integer == 0);
+                }
+            },
+            Boolean::Not => {
+                if let Some(&first) = state.boolean_stack.first() {
+                    state.boolean_stack.push(!first);
+                }
+            },
+            Boolean::Or => {
+                if let Some(&second) = state.boolean_stack.second() {
+                    if let Some(&first) = state.boolean_stack.first() {
+                        state.boolean_stack.push(first || second);
+                    }
+                }
+            },
+            Boolean::Pop => unimplemented!(), // FIXME: implement
+            Boolean::Rand => unimplemented!(), // FIXME: implement
+            Boolean::Rot => state.boolean_stack.rot(),
+            Boolean::Shove => {
+                if let Some(&first_integer) = state.integer_stack.first() {
+                    state.boolean_stack.shove(first_integer as usize);
+                }
+            },
+            Boolean::StackDepth => state.integer_stack.push(state.boolean_stack.len() as i64),
+            Boolean::Swap => state.boolean_stack.swap(),
+            Boolean::Yank => {
+                if let Some(&first_integer) = state.integer_stack.first() {
+                    state.boolean_stack.yank(first_integer as usize);
+                }
+            },
+            Boolean::YankDup => {
+                if let Some(&first_integer) = state.integer_stack.first() {
+                    state.boolean_stack.yank_dup(first_integer as usize);
+                }
+            }
         }
     }
 }
