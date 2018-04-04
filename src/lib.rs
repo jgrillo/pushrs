@@ -270,8 +270,8 @@ impl <'a> Dispatch<'a> for Boolean {
         match self {
             Boolean::Eq => {
                 if state.boolean_stack.len() >= 2 {
-                    if let Some(&second) = state.boolean_stack.pop() {
-                        if let Some(&first) = state.boolean_stack.pop() {
+                    if let Some(second) = state.boolean_stack.pop() {
+                        if let Some(first) = state.boolean_stack.pop() {
                             state.boolean_stack.push(first == second);
                         }
                     }
@@ -279,8 +279,8 @@ impl <'a> Dispatch<'a> for Boolean {
             },
             Boolean::And => {
                 if state.boolean_stack.len() >= 2 {
-                    if let Some(&second) = state.boolean_stack.pop() {
-                        if let Some(&first) = state.boolean_stack.pop() {
+                    if let Some(second) = state.boolean_stack.pop() {
+                        if let Some(first) = state.boolean_stack.pop() {
                             state.boolean_stack.push(first && second);
                         }
                     }
@@ -290,24 +290,24 @@ impl <'a> Dispatch<'a> for Boolean {
             Boolean::Dup => state.boolean_stack.dup(),
             Boolean::Flush => state.boolean_stack.flush(),
             Boolean::FromFloat => {
-                if let Some(&first_float) = state.float_stack.pop() {
+                if let Some(first_float) = state.float_stack.pop() {
                     state.boolean_stack.push(first_float == 0.0);
                 }
             },
             Boolean::FromInteger => {
-                if let Some(&first_integer) = state.integer_stack.pop() {
+                if let Some(first_integer) = state.integer_stack.pop() {
                     state.boolean_stack.push(first_integer == 0);
                 }
             },
             Boolean::Not => {
-                if let Some(&first) = state.boolean_stack.pop() {
+                if let Some(first) = state.boolean_stack.pop() {
                     state.boolean_stack.push(!first);
                 }
             },
             Boolean::Or => {
                 if state.boolean_stack.len() >= 2 {
-                    if let Some(&second) = state.boolean_stack.pop() {
-                        if let Some(&first) = state.boolean_stack.pop() {
+                    if let Some(second) = state.boolean_stack.pop() {
+                        if let Some(first) = state.boolean_stack.pop() {
                             state.boolean_stack.push(first || second);
                         }
                     }
@@ -318,7 +318,7 @@ impl <'a> Dispatch<'a> for Boolean {
             Boolean::Rot => state.boolean_stack.rot(),
             Boolean::Shove => {
                 if state.boolean_stack.len() >= 1 {
-                    if let Some(&first_integer) = state.integer_stack.pop() {
+                    if let Some(first_integer) = state.integer_stack.pop() {
                         state.boolean_stack.shove(first_integer as usize);
                     }
                 }
@@ -326,12 +326,12 @@ impl <'a> Dispatch<'a> for Boolean {
             Boolean::StackDepth => state.integer_stack.push(state.boolean_stack.len() as i64),
             Boolean::Swap => state.boolean_stack.swap(),
             Boolean::Yank => {
-                if let Some(&first_integer) = state.integer_stack.pop() {
+                if let Some(first_integer) = state.integer_stack.pop() {
                     state.boolean_stack.yank(first_integer as usize);
                 }
             },
             Boolean::YankDup => {
-                if let Some(&first_integer) = state.integer_stack.pop() {
+                if let Some(first_integer) = state.integer_stack.pop() {
                     state.boolean_stack.yank_dup(first_integer as usize);
                 }
             }
